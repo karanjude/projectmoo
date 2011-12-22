@@ -1,0 +1,11 @@
+webserver: webserver.o uv/uv.a
+	g++ -o webserver webserver.o uv/uv.a
+
+uv/uv.a:
+	$(MAKE) -C uv
+
+webserver.o:
+	g++ -c -Iuv/include -Iuv/test webserver.cc
+
+clean:
+	rm webserver webserver.o
