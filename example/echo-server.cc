@@ -10,36 +10,38 @@
 
 using namespace std;
 
-#define RESPONSE \
-  "HTTP/1.1 200 OK\r\n" \
-  "Content-Type: text/plain\r\n" \
-  "Content-Length: 12\r\n" \
-  "\r\n" \
-  "hello world\n"
-
-static uv_buf_t resbuf;
-
 typedef struct {
-  uv_tcp_t handle;
-  http_parser parser;
-  uv_write_t write_req;
-}client_t;
+  uv_write_t req;
+  uv_buf_t buf;
+} write_req_t;
 
-
-static http_parser_settings settings;
+bool server_closed = false;
 
 static uv_loop_t* loop;
 static uv_tcp_t server;
 static uv_handle_t* server_handle_g;
 
 void on_close(uv_handle_t* handle){
-  client_t* client = (client_t*) handle->data;
   free(handle);
   cerr << endl << "client disconnected";
 }
 
 void on_server_close(uv_handle_t* handle){
+  //free(handle);
   cout << endl << "server shutdown";
+}
+
+void after_write(uv_write_t* req, int status){
+  write_req_t* wr;
+
+  if(status){
+    uv_err_t err = uv_last_error(loop);
+    fprintf(stderr, "uv_write erro: %s\n", uv_strerror(err));
+  }
+
+  wr = (write_req_t*) req;
+  free(wr->buf.base);
+  free(wr);
 }
 
 void after_shutdown(uv_shutdown_t* req, int status){
@@ -49,29 +51,48 @@ void after_shutdown(uv_shutdown_t* req, int status){
 
 void on_read(uv_stream_t* client_handle, ssize_t nread, uv_buf_t buf){
   uv_shutdown_t* req;
-
-  client_t* client = (client_t*) client_handle->data;
+  write_req_t *wr;
 
    if(nread < 0){
     uv_err_t err = uv_last_error(loop);
     if(err.code == UV_EOF){
+      // close
       req = (uv_shutdown_t*) malloc(sizeof(req));
       uv_shutdown(req, client_handle, after_shutdown);
     }else{
       fprintf(stderr, "read error: %s", uv_strerror(err));
     }
+    free(buf.base);
   }else{
-    size_t parsed = http_parser_execute(&client->parser, &settings, buf.base, nread);
-    if(parsed < nread){
-      fprintf(stderr, "\nparse error");
-      uv_close((uv_handle_t*)&client->handle, on_close);
-    }
-   }
+    if(server_closed)
+      return;
 
-   free(buf.base);
+    for(int i = 0;i < nread; i++){
+      if(buf.base[i] == 'Q'){
+	if(i+1 < nread && buf.base[i+1] == 'C'){
+	  free(buf.base);
+	  uv_close((uv_handle_t*)client_handle, on_close);
+	}else if(i+1 < nread && buf.base[i+1] == 'S'){
+	  cerr << endl << "About to end server";
+	  free(buf.base);
+	  uv_close((uv_handle_t*)client_handle, on_close);
+	  uv_close(server_handle_g, on_server_close);
+	  server_closed = true;
+	}
+      }
+    }
+
+    if(!server_closed){
+      wr = (write_req_t*) malloc(sizeof(write_req_t));
+      wr->buf = uv_buf_init(buf.base, nread);
+      if(uv_write(&wr->req, client_handle, &wr->buf, 1, after_write)){}
+    }
+  }
+
+
 }
 
-uv_buf_t on_alloc(uv_handle_t* client_handle, size_t suggested_size){
+uv_buf_t on_alloc(uv_handle_t* client_handle, size_t suggested_size) {
   return uv_buf_init((char*)malloc(suggested_size), suggested_size);
 }
 
@@ -83,35 +104,19 @@ void on_connect(uv_stream_t* server_handle, int status){
   }
   cerr << endl << "Connection established";
 
-  client_t* client = (client_t*) malloc(sizeof(client_t));
-  uv_tcp_t* client_handle = (uv_tcp_t*)&client->handle;
-  int r = uv_tcp_init(loop, client_handle);
-  client_handle->data = client;
+  uv_stream_t * client_handle = (uv_stream_t*) malloc(sizeof(uv_tcp_t));
+  int r = uv_tcp_init(loop, (uv_tcp_t*)client_handle);
+  client_handle->data = server_handle;
 
-  r = uv_accept(server_handle, (uv_stream_t*)&client->handle);
-
-  http_parser_init(&client->parser, HTTP_REQUEST);
-  client->parser.data = client;
-
-  r = uv_read_start((uv_stream_t*)&client->handle, on_alloc, on_read);
-}
-
-void after_write(uv_write_t* req, int status){
-  uv_close((uv_handle_t*)req->handle, on_close);
-}
-
-int on_headers_complete(http_parser* parser){
-  printf("\nGot an http message ");
-  client_t* client = (client_t*)parser->data;
-  uv_write(&client->write_req, (uv_stream_t*)&client->handle, &resbuf, 1, after_write);
-  return 1;
+  r = uv_accept(server_handle, client_handle);
+  r = uv_read_start(client_handle, on_alloc, on_read);
 }
 
 int main(int argc, char** argv){
   loop = uv_default_loop();
-  settings.on_headers_complete = on_headers_complete;
-  resbuf.base = (char*)RESPONSE;
-  resbuf.len = sizeof(RESPONSE);
+
+  cerr << endl << "Hello world";
+
   server_handle_g = (uv_handle_t*)&server;
   int r = uv_tcp_init(loop, &server);
   if(r){
@@ -120,6 +125,7 @@ int main(int argc, char** argv){
   }
 
   struct sockaddr_in address = uv_ip4_addr("0.0.0.0", 8000);
+  
   /* bind the server */
   r = uv_tcp_bind(&server, address);
   if(r){
@@ -132,6 +138,7 @@ int main(int argc, char** argv){
     fprintf(stderr, "Listen error: %s\n", uv_err_name(uv_last_error(loop)));
     return -1;
   }
+
   uv_run(loop);
   return 0;
 }
