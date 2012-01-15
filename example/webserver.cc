@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cassert>
 #include <cstdlib>
+#include <sstream>
+#include <fstream>
 
 #include "uv.h"
 #include "http_parser/http_parser.h"
@@ -12,10 +14,10 @@ using namespace std;
 
 #define RESPONSE \
   "HTTP/1.1 200 OK\r\n" \
-  "Content-Type: text/plain\r\n" \
+  "Content-Type: text/html\r\n" \
   "Content-Length: 12\r\n" \
   "\r\n" \
-  "hello world\n"
+  "Hello World\n"
 
 typedef struct {
   uv_write_t req;
@@ -26,6 +28,7 @@ typedef struct {
   uv_tcp_t handle;
   http_parser parser;
   write_req_t wr;
+  string *file_name;
 }client_t;
 
 static uv_buf_t resbuf;
@@ -40,6 +43,8 @@ static int served;
 
 void on_close(uv_handle_t* handle){
   client_t* client = (client_t*) handle->data;
+  if(client->file_name)
+    delete client->file_name;
   free(client);
   cerr << endl << "client disconnected";
 }
@@ -49,6 +54,7 @@ void on_server_close(uv_handle_t* handle){
 }
 
 void after_shutdown(uv_shutdown_t* req, int status){
+  cout << endl << "after shutdown";
 }
 
 void on_read(uv_stream_t* client_handle, ssize_t nread, uv_buf_t buf){
@@ -63,18 +69,35 @@ void on_read(uv_stream_t* client_handle, ssize_t nread, uv_buf_t buf){
     }else{
       fprintf(stderr, "read error: %s", uv_strerror(err));
     }
-    free(buf.base);
    }else{
      if(server_closed)
        return;
 
+
+    string GET_STRING = "GET /?file=";
+    string HTTP_STRING = " HTTP";
+    string s = buf.base;
+
+    //cout << endl << s;
+
+    int pos = s.find(GET_STRING);
+    if(pos != string::npos){
+      int http_pos = s.find(HTTP_STRING, pos);
+      if(http_pos != string::npos){
+	string file_name = s.substr(pos+GET_STRING.length(), http_pos-(pos+GET_STRING.length()));
+	client->file_name = new string(file_name);
+	cout << endl << "got string :" << *(client->file_name);
+      }
+    }
+
     size_t parsed = http_parser_execute(&client->parser, &settings, buf.base, nread);
+
     if(parsed < nread){
-      free(buf.base);
       fprintf(stderr, "\nparse error");
       uv_close((uv_handle_t*)&client->handle, on_close);
     }
    }
+   free(buf.base);
 }
 
 uv_buf_t on_alloc(uv_handle_t* client_handle, size_t suggested_size){
@@ -110,18 +133,49 @@ void after_write(uv_write_t* req, int status){
 
   client_t* client = (client_t*)req->data;
   char* base = client->wr.buf.base;
-  
-  //if(base)
-  //  free(base);
+  if(base)
+    free(base);
 
   uv_close((uv_handle_t*)&client->handle, on_close);
+}
+
+string get_file_content(const string& file_name){
+  string line;
+  ifstream file;
+  ostringstream content; 
+  file.open(file_name.c_str());
+  if(file.is_open()){
+    while(!file.eof()){
+      file >> line;
+      content << line;
+    }
+  }
+  file.close();
+  return content.str();
+}
+
+string make_http_response(const string& file_name){
+  string content = get_file_content(file_name);
+
+  string header = 
+    "HTTP/1.1 200 OK\r\n"			\
+    "Content-Type: text/html\r\n"		\
+    "Content-Length: ";
+
+  ostringstream ss;
+  ss << header << content.length() << "\r\n\r\n" << content;
+  return ss.str();
 }
 
 int on_headers_complete(http_parser* parser){
   printf("\nGot an http message ");
   client_t* client = (client_t*)parser->data;
+
+  string http_response = make_http_response(*(client->file_name));
+  char* response = new char[http_response.length()];
+  strcpy(response, http_response.data());
   
-  client->wr.buf = uv_buf_init((char*)RESPONSE, sizeof(RESPONSE));
+  client->wr.buf = uv_buf_init(response, http_response.length());
   client->wr.req.data = client;
   served++;
   fprintf(stderr, "served :%d\n", served);
