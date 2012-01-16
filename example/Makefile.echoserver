@@ -1,0 +1,14 @@
+echoserver: echo-server.o uv/uv.a http_parser/http_parser.o
+	g++ -o echoserver echo-server.o uv/uv.a http_parser/http_parser.o
+
+http_parser/http_parser.o:
+	$(MAKE) -C http_parser http_parser.o
+
+uv/uv.a:
+	$(MAKE) -C uv
+
+echo-server.o:
+	g++ -g -c -Iuv/include -Iuv/test echo-server.cc
+
+clean:
+	rm echoserver echo-server.o

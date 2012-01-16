@@ -40,12 +40,15 @@ void after_write(uv_write_t* req, int status){
   }
 
   wr = (write_req_t*) req;
+
+  //uv_close((uv_handle_t*)wr->req.data, on_close);
+
   free(wr->buf.base);
   free(wr);
 }
 
 void after_shutdown(uv_shutdown_t* req, int status){
-  uv_close((uv_handle_t*)req->handle, on_close);
+  //uv_close((uv_handle_t*)req->data, on_close);
   free(req);
 }
 
@@ -56,40 +59,26 @@ void on_read(uv_stream_t* client_handle, ssize_t nread, uv_buf_t buf){
    if(nread < 0){
     uv_err_t err = uv_last_error(loop);
     if(err.code == UV_EOF){
+      free(buf.base);
       // close
-      req = (uv_shutdown_t*) malloc(sizeof(req));
-      uv_shutdown(req, client_handle, after_shutdown);
+      //req = (uv_shutdown_t*) malloc(sizeof(req));
+      //req->data = client_handle;
+      //uv_shutdown(req, client_handle, after_shutdown);
     }else{
       fprintf(stderr, "read error: %s", uv_strerror(err));
     }
-    free(buf.base);
-  }else{
+   }else{
     if(server_closed)
       return;
-
-    for(int i = 0;i < nread; i++){
-      if(buf.base[i] == 'Q'){
-	if(i+1 < nread && buf.base[i+1] == 'C'){
-	  free(buf.base);
-	  uv_close((uv_handle_t*)client_handle, on_close);
-	}else if(i+1 < nread && buf.base[i+1] == 'S'){
-	  cerr << endl << "About to end server";
-	  free(buf.base);
-	  uv_close((uv_handle_t*)client_handle, on_close);
-	  uv_close(server_handle_g, on_server_close);
-	  server_closed = true;
-	}
-      }
-    }
-
     if(!server_closed){
       wr = (write_req_t*) malloc(sizeof(write_req_t));
       wr->buf = uv_buf_init(buf.base, nread);
-      if(uv_write(&wr->req, client_handle, &wr->buf, 1, after_write)){}
+      wr->req.data = client_handle;
+
+      uv_write(&wr->req, client_handle, &wr->buf, 1, after_write);
+      
     }
-  }
-
-
+   }
 }
 
 uv_buf_t on_alloc(uv_handle_t* client_handle, size_t suggested_size) {
