@@ -1,0 +1,14 @@
+webserver_n: webserver_n.o uv/uv.a http_parser/http_parser.o
+	g++ -o webserver_n webserver_n.o uv/uv.a http_parser/http_parser.o
+
+http_parser/http_parser.o:
+	$(MAKE) -C http_parser http_parser.o
+
+uv/uv.a:
+	$(MAKE) -C uv
+
+webserver_n.o:
+	g++ -g -c -Iuv/include -Iuv/test webserver_n.cc
+
+clean:
+	rm webserver_n webserver_n.o
