@@ -15,20 +15,22 @@ LINK = 4
 
 def print_entity(entity):
     if entity.string is not None:
-        print >> sys.stderr, entity.string
+        print  entity.string
 
 def print_message(message):
-    print >> sys.stderr
-    print >> sys.stderr, message
-    print >> sys.stderr
+    print 
+    print  message
+    print 
+
 
 def dump_entity(file_path, entity, type):
     if entity.string is None:
         return
 
-    s = re.escape(unicode(entity.string).encode('utf8','ignore'))
+    s = re.escape(entity.string.encode('utf8','ignore'))
+    ss = re.escape(file_path.encode('utf8','ignore'))
 
-    sql = """INSERT INTO WIKIPAEDIA_CONTENT(local_url, field_type, field_content) VALUES('%s',%s,'%s')""" % (file_path, type, s)
+    sql = """INSERT INTO WIKIPAEDIA_CONTENT(local_url, field_type, field_content) VALUES('%s',%s,'%s')""" % (ss, type, s)
     print_message(sql)
     c.execute(sql)
         
@@ -69,24 +71,33 @@ def extract_content_for_page(html_file, c):
     extract_title(html_file, dom, c)
     extract_headings(html_file, dom, c)
     extract_links(html_file, dom, c)
-
+    del dom
 
 if __name__ == "__main__":
     f = open("error.log","a")
-    try:
-        full_path = os.path.abspath(sys.argv[1])
-        print_message(full_path)
-        db = MySQLdb.connect(user="root", db="wikipaedia", passwd="", charset = "utf8")
-        c = db.cursor()
-        extract_content_for_page(full_path, c)
-        db.commit()
-        c.close()
-        db.close()
-    except Exception, e:
-        f.write(str(e))
-        traceback.print_exc(file=f)
-        f.write("\n\n")
-        
+    db = MySQLdb.connect(user="root", db="wikipaedia", passwd="", charset = "utf8")
+    c = db.cursor()
+    
+    full_path = os.path.abspath(sys.argv[1])
+    input = open(full_path)
+    dir_name = os.path.dirname(full_path)
+
+    for html_file_path in input:
+        html_file_path = html_file_path.strip()
+        try:
+            html_file_path = os.path.abspath(os.path.join(dir_name, html_file_path))
+            print_message(html_file_path)
+            extract_content_for_page(html_file_path, c)
+            db.commit()
+        except Exception, e:
+            f.write("ERROR IN FILE:" + html_file_path)
+            f.write("\n")
+            f.write(str(e))
+            traceback.print_exc(file=f)
+            f.write("\n\n")
+
+    c.close()
+    db.close()
     f.close()
         
     
