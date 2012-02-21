@@ -25,6 +25,7 @@ def process(f1, f2, doc_stats, id):
         token_pr = token_p * (i+1)
         print "%s %s %s %s %s %s %s" % (id, f2, i+1, tokens[i][0], token_tf, token_p, token_pr)
 
+
 if __name__ == "__main__":
     fields = ['title','h','a','all']
     field_name = ['title','heading','anchor','all']
