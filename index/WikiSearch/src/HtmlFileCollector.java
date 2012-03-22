@@ -5,7 +5,7 @@ import java.util.List;
 
 
 public class HtmlFileCollector {
-	public static final int MAX_FILES = 1;
+	public static final int MAX_FILES = 20;
 	List<File> htmlFiles = new ArrayList<File>(); 
 
 	public void collect(File htmlFile) {
@@ -17,9 +17,9 @@ public class HtmlFileCollector {
 		return htmlFiles.size();
 	}
 
-	public void parseCollectedFiles(WikiPaideiaParser wikiPaediaParser) throws IOException {
+	public void parseCollectedFiles(WikiPaideiaParser wikiPaediaParser, IndexBuilder indexBuilder) throws IOException {
 		for (File file : htmlFiles) {
-			wikiPaediaParser.parseFile(file);
+			wikiPaediaParser.parseFile(file, indexBuilder);
 		}
 		
 	}
