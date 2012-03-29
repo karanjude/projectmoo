@@ -6,22 +6,23 @@ import java.util.List;
 
 public class HtmlFileCollector {
 	public static final int MAX_FILES = 20;
-	List<File> htmlFiles = new ArrayList<File>(); 
+	private final WikiPaideiaParser wikiPaediaParser;
+	private final IndexBuilder indexBuilder; 
+	int count = 0;
 
-	public void collect(File htmlFile) {
-		System.out.println(htmlFile.getAbsolutePath());
-		htmlFiles.add(htmlFile);
+	public void collect(File htmlFile) throws IOException {
+		System.out.println(htmlFile.getAbsolutePath() + " " + count);
+		wikiPaediaParser.parseFile(htmlFile, indexBuilder);
+		count++;
+	}
+	
+	public HtmlFileCollector(WikiPaideiaParser wikiPaediaParser, IndexBuilder indexBuilder) {
+		this.wikiPaediaParser = wikiPaediaParser;
+		this.indexBuilder = indexBuilder;
 	}
 
 	public int count() {
-		return htmlFiles.size();
-	}
-
-	public void parseCollectedFiles(WikiPaideiaParser wikiPaediaParser, IndexBuilder indexBuilder) throws IOException {
-		for (File file : htmlFiles) {
-			wikiPaediaParser.parseFile(file, indexBuilder);
-		}
-		
+		return count;
 	}
 
 }

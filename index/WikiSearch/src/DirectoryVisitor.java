@@ -1,4 +1,5 @@
 import java.io.File;
+import java.io.IOException;
 
 public class DirectoryVisitor {
 
@@ -13,17 +14,19 @@ public class DirectoryVisitor {
 	}
 
 	private void visit(File toVisit, HtmlFileCollector htmlFileCollector) {
-		if (toVisit.isDirectory() && htmlFileCollector.count() <= htmlFileCollector.MAX_FILES) {
+		if (toVisit.isDirectory()) {
 			String[] filenames = toVisit.list();
 			for (String entity : filenames) {
-				if(htmlFileCollector.count() > htmlFileCollector.MAX_FILES)
-					break;
 				File child = new File(toVisit.getAbsolutePath()
 						+ File.separatorChar + entity);
 				if (child.isDirectory()) {
 					visit(child, htmlFileCollector);
 				} else {
-					htmlFileCollector.collect(child);
+					try {
+						htmlFileCollector.collect(child);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 				}
 			}
 		}

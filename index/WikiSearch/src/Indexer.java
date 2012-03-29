@@ -6,23 +6,36 @@ import org.apache.lucene.index.CorruptIndexException;
 
 public class Indexer {
 	public static void main(String[] args) {
-		if (args.length < 1)
+		if (args.length < 2) {
+			System.out.println("java Indexer <wikipaedia_path> <index_path>");
 			System.exit(0);
+		}
 
 		String wikipaediaDirectory = args[0];
-		HtmlFileCollector htmlFileCollector = new HtmlFileCollector();
+		DTD dtd = null;
+		try {
+			dtd = DTD.getDTD("html.dtd");
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+		WikiPaideiaParser wikiPaediaParser = new WikiPaideiaParser(dtd);
+
+		IndexBuilder indexBuilder = null;
+		try {
+			indexBuilder = new IndexBuilder(args[1]);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		HtmlFileCollector htmlFileCollector = new HtmlFileCollector(
+				wikiPaediaParser, indexBuilder);
+
 		DirectoryVisitor directoryVisitor = new DirectoryVisitor(
 				wikipaediaDirectory);
 		directoryVisitor.visit(htmlFileCollector);
 
-		IndexBuilder indexBuilder = null;
-		try {
-			indexBuilder = new IndexBuilder("index");
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		System.out.println(htmlFileCollector.count() + " files added");
 		
-		parseFiles(htmlFileCollector, indexBuilder);
 		try {
 			indexBuilder.save();
 		} catch (CorruptIndexException e) {
@@ -32,13 +45,4 @@ public class Indexer {
 		}
 	}
 
-	private static void parseFiles(HtmlFileCollector htmlFileCollector, IndexBuilder indexBuilder) {
-		try {
-			DTD dtd = DTD.getDTD("html.dtd");
-			WikiPaideiaParser wikiPaediaParser = new WikiPaideiaParser(dtd);
-			htmlFileCollector.parseCollectedFiles(wikiPaediaParser, indexBuilder);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
 }

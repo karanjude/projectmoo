@@ -18,11 +18,16 @@ public class IndexBuilder {
 
 	private final String path;
 	private IndexWriter indexWriter;
+	public static String BODY_FIELD = "body";
+	public static String TITLE_FIELD = "title";
+	public static String HEADING_FIELD = "heading";
+	public static String ANCHOR_FIELD = "anchor";
+	public static String ID_FIELD = "id";
 
 	public IndexBuilder(String path) throws IOException {
 		this.path = path;
 		Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_35);
-		Directory index = FSDirectory.open(new File("index"));
+		Directory index = FSDirectory.open(new File(path));
 		IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_35,
 				analyzer);
 		indexWriter = new IndexWriter(index, config);
@@ -32,11 +37,11 @@ public class IndexBuilder {
 			List<String> titletext, List<String> resttext, String id)
 			throws CorruptIndexException, IOException {
 		Document doc = new Document();
-		addTextToIndex(doc, atext, "anchor");
-		addTextToIndex(doc, htext, "heading");
-		addTextToIndex(doc, titletext, "title");
-		addTextToIndex(doc, resttext, "body");
-		addTextToIndex(doc, id, "id");
+		addTextToIndex(doc, atext, ANCHOR_FIELD);
+		addTextToIndex(doc, htext, HEADING_FIELD);
+		addTextToIndex(doc, titletext, TITLE_FIELD);
+		addTextToIndex(doc, resttext, BODY_FIELD);
+		addTextToIndex(doc, id, ID_FIELD);
 		indexWriter.addDocument(doc);
 	}
 
