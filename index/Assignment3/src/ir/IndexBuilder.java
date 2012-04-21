@@ -1,4 +1,5 @@
 package ir;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -8,6 +9,7 @@ import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.IndexReader.FieldOption;
@@ -44,6 +46,7 @@ public class IndexBuilder {
 		addTextToIndex(doc, resttext, BODY_FIELD);
 		addTextToIndex(doc, id, ID_FIELD);
 		indexWriter.addDocument(doc);
+		//indexWriter.commit();
 	}
 
 	private void addTextToIndex(Document doc, String id, String fieldName) {
@@ -56,7 +59,7 @@ public class IndexBuilder {
 			String fieldName) {
 		for (String text : atext) {
 			Field field = new Field(fieldName, text, Field.Store.YES,
-					Field.Index.ANALYZED);
+					Field.Index.ANALYZED, Field.TermVector.YES);
 			doc.add(field);
 		}
 	}

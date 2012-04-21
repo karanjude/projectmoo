@@ -28,12 +28,20 @@ public class WikiPaideiaParser extends Parser {
 
 	public void parseFile(File file, IndexBuilder indexBuilder) throws IOException {
 		Reader reader = new FileReader(file);
+		atext = new ArrayList<String>();
+		htext = new ArrayList<String>();
+		titletext = new ArrayList<String>();
+		resttext = new  ArrayList<String>();
+		stack = new Stack();
 		this.parse(reader);
 		indexBuilder.addToIndex(atext, htext, titletext, resttext, file.getAbsolutePath());
-		atext.clear();
-		htext.clear();
-		titletext.clear();
-		resttext.clear();
+		atext = null;
+		htext = null;
+		titletext = null;
+		resttext = null;
+		stack = null;
+		reader.close();
+		System.gc();
 	}
 
 	@Override

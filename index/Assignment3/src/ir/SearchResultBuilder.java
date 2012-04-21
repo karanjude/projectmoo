@@ -43,6 +43,7 @@ public class SearchResultBuilder {
 
 	public void buildTopic() {
 		rankedLists.top.add(this.topic);
+		System.out.println(this.topic);
 	}
 
 }
